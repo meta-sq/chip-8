@@ -1,1 +1,1 @@
-# chips-8
+# Chip8
