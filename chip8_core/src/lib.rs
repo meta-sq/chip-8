@@ -64,12 +64,12 @@ impl Emu {
         self.ram = [0; RAM_SIZE];
         self.screen = [false; SCREEN_WIDTH * SCREEN_HEIGHT];
         self.v_registers = [0; NUM_REGS];
-        self.i_registers = 0;
+        self.i_register = 0;
         self.sp = 0;
         self.stack = [0; STACK_SIZE];
         self.keys = [false; NUM_KEYS];
-        self.delaytimer = 0;
-        self.soundtimer = 0;
+        self.delay_timer = 0;
+        self.sound_timer = 0;
         self.ram[..FONTSET_SIZE].copy_from_slice(&FONTSET);
     }
 
@@ -81,16 +81,67 @@ impl Emu {
 
     fn pop(&mut self) -> u16 {
         self.sp -= 1;
-        self.stack[self.sp as usize];
+        self.stack[self.sp as usize]
     }
 
     pub fn tick(&mut self) {
         //Fetch
         let op = self.fetch();
         //Decode
-        //Execute
+        self.execute(op);
     }
-
+    fn execute(&mut self,op:u16)
+    {
+        let one=(op&0xF000)>>12;
+        let two=(op&0x0F00)>>8;
+        let three=(op&0x00F0)>>4;
+        let four=op&0x000F;
+        match(one,two,three,four)
+        {
+           
+            
+            (1,_,_,_)=>{let nnn=op&0xFFF;self.pc=nnn;},//jump 
+            (2,_,_,_)=>{let nnn=op&0xFFF;self.push(self.pc);self.pc=nnn;},//Call subroutine
+            (3,_,_,_)=>{
+                let x=two as usize;
+                let nn=(op&0xFF) as u8;
+                if self.v_registers[x]== nn
+                {
+                    self.pc+=2;
+                }
+            },//skip VX==NN
+            (4,_,_,_)=>{
+                let x=two as usize;
+                let nn=(op&0xFF) as u8;
+                if self.v_registers[x]!= nn
+                {
+                    self.pc+=2;
+                }
+            },//skep next if VX !=nn
+            (5,_,_,_)=>{
+                let x=two as usize;
+                let y=three as usize;
+                if self.v_registers[x]== self.v_registers[y]
+                {
+                    self.pc+=2;
+                }
+            },//skip next if VX==vy
+            (6,_,_,_)=>{let x= two as usize;
+            let nn=(op&0xFF) as u8;
+            self.v_registers[x]=nn;
+            }//vx=nn,
+            (7,_,_,_)=>{let x= two as usize;
+                let nn=(op&0xFF) as u8;
+                self.v_registers[x]=self.v_registers[x].wrapping_add(nn);},//VX+=NN
+            (8,_,_,_) => { let x=two as usize; let y =three as usize;
+                self.v_registers[x]=self.v_registers[y];
+            },//VX=VY   
+            (0,0,0xE,0xE) => {let retaddr=self.pop(); self.pc=retaddr;},//return to addr
+            (0,0,0xE,0) => {self.screen =[false;SCREEN_WIDTH*SCREEN_HEIGHT];}, //clear screen
+            (0,0,0,0) => return,//nop
+            (_,_,_,_) => unimplemented!("Not a valid opcode: {}",op)
+        }
+    }
     fn fetch(&mut self) -> u16 {
         let higher_byte = self.ram[self.pc as usize] as u16;
         let lower_byte = self.ram[(self.pc + 1) as usize] as u16;
@@ -100,15 +151,15 @@ impl Emu {
     }
 
     pub fn tick_timers(&mut self) {
-        if self.delaytimer > 0 {
-            self.delaytimer -= 1;
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
         }
         
-        if self.soundtimer > 0 {
-            if self.soundtimer == 1 {
+        if self.sound_timer > 0 {
+            if self.sound_timer == 1 {
                 // BEEP
             }
-            self.soundtimer -= 1;
+            self.sound_timer -= 1;
         }
     }
 
