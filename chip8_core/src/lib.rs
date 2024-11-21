@@ -119,7 +119,7 @@ impl Emu {
                     self.pc+=2;
                 }
             },//skep next if VX !=nn
-            (5,_,_,_)=>{
+            (5,_,_,0)=>{
                 let x=two as usize;
                 let y=three as usize;
                 if self.v_registers[x]== self.v_registers[y]
