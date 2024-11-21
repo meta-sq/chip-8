@@ -134,7 +134,7 @@ impl Emu {
             (7,_,_,_)=>{let x= two as usize;
                 let nn=(op&0xFF) as u8;
                 self.v_registers[x]=self.v_registers[x].wrapping_add(nn);},//VX+=NN
-            (8,_,_,_) => { let x=two as usize; let y =three as usize;
+            (8,_,_,0) => { let x=two as usize; let y =three as usize;
                 self.v_registers[x]=self.v_registers[y];
             },//VX=VY   
             (0,0,0xE,0xE) => {let retaddr=self.pop(); self.pc=retaddr;},//return to addr
