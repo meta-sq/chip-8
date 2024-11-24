@@ -155,7 +155,7 @@ impl Emu {
             (0,0,0xE,0xE) => {let retaddr=self.pop(); self.pc=retaddr;},//return to addr
             (0,0,0xE,0) => {self.screen =[false;SCREEN_WIDTH*SCREEN_HEIGHT];}, //clear screen
             (0,0,0,0) => return,//nop
-            (_,_,_,_) => unimplemented!("Not a valid opcode: {}",op),
+
             // VX |= VY
             (8, _, _, 1) => {
                 let x = two as usize;
@@ -246,6 +246,135 @@ impl Emu {
                 let rng: u8 = random();
                 self.v_registers[x] = rng & nn;
             },
+
+            //Draw - DXYN
+            (0xD, _, _, _) => {
+                let x_coord = self.v_registers[two as usize] as u16;
+                let y_coord = self.v_registers[three as usize] as u16;
+                let num_rows= four;
+
+                let mut flipped = false;
+                for y_line in 0..num_rows {
+                    let addr = self.i_register + y_line as u16;
+                    let pixels = self.ram[addr as usize];
+
+                    for x_line in 0..8 {
+                        if (pixels & (0b1000_0000 >> x_line)) != 0 {
+                            let x = (x_coord + x_line) as usize % SCREEN_WIDTH;
+                            let y = (y_coord + y_line) as usize % SCREEN_HEIGHT;
+
+                            let idx = x + SCREEN_WIDTH * y;
+
+                            flipped |= self.screen[idx];
+                            self.screen[idx] ^= true;
+                        }
+                    }
+                }
+                if flipped {
+                    self.v_registers[0xF] = 1;
+                } else {
+                    self.v_registers[0xF] = 0;
+                }
+            },
+
+            // Skip if key pressed - EX9E
+            (0xE, _, 9, 0xE) => {
+                let x = two as usize;
+                let vx = self.v_registers[x];
+                let key = self.keys[vx as usize];
+                if key {
+                    self.pc += 2;
+                }
+            },
+
+            // Skip if key not pressed - EXA1
+            (0xE, _, 0xA, 1) => {
+                let x = two as usize;
+                let vx = self.v_registers[x];
+                let key = self.keys[vx as usize];
+                if !key {
+                    self.pc += 2;
+                }
+            },
+
+            // VX = DT - FX07
+            (0xF, _, 0, 7) => {
+                let x = two as usize;
+                self.v_registers[x] = self.delay_timer;
+            },
+
+            // Wait Key Press - FX0A
+            (0xF, _, 0, 0xA) => {
+                let x = two as usize;
+                let mut pressed = false;
+                for i in 0..self.keys.len() {
+                    if self.keys[i] {
+                        self.v_registers[x] = i as u8;
+                        pressed = true;
+                        break;
+                    }
+                }
+
+                if !pressed {
+                    // Redo opcode
+                    self.pc -= 2;
+                }
+            },
+            // DT = VX - FX15
+            (0xF, _, 1, 5) => {
+                let x = two as usize;
+                self.delay_timer = self.v_registers[x];
+            },
+            // ST = VX - FX18
+            (0xF, _, 1, 8) => {
+                let x = two as usize;
+                self.sound_timer = self.v_registers[x];
+            },
+            // I += VX - FX1E
+            (0xF, _, 1, 0xE) => {
+                let x = two as usize;
+                let vx = self.v_registers[x] as u16;
+                self.i_register = self.i_register.wrapping_add(vx);
+            },
+            // I = FONT - FX29
+            (0xF, _, 2, 9) => {
+                let x = two as usize;
+                let c = self.v_registers[x] as u16;
+                self.i_register = c * 5;
+            },
+            // BCD of VX - FX33
+            (0xF, _, 3, 3) => {
+                let x = two as usize;
+                let vx = self.v_registers[x] as f32;
+
+                // Fetch the hundreds digit by dividing by 100 and tossing the decimal
+                let hundreds = (vx / 100.0).floor() as u8;
+                // Fetch the tens digit by dividing by 10, tossing the ones digit and the decimal
+                let tens = ((vx / 10.0) % 10.0).floor() as u8;
+                // Fetch the ones digit by tossing the hundreds and the tens
+                let ones = (vx % 10.0) as u8;
+
+                self.ram[self.i_register as usize] = hundreds;
+                self.ram[(self.i_register + 1) as usize] = tens;
+                self.ram[(self.i_register + 2) as usize] = ones;
+            },
+            // STORE V0 - VX - FX55
+            (0xF, _, 5, 5) => {
+                let x = two as usize;
+                let i = self.i_register as usize;
+                for idx in 0..=x {
+                    self.ram[i + idx] = self.v_registers[idx];
+                }
+            },
+            // LOAD V0 - VX - FX65
+            (0xF, _, 6, 5) => {
+                let x = two as usize;
+                let i = self.i_register as usize;
+                for idx in 0..=x {
+                    self.v_registers[idx] = self.ram[i + idx];
+                }
+            },
+            (_,_,_,_) => unimplemented!("Not a valid opcode: {}",op),
             
         }
     }
