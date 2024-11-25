@@ -3,5 +3,13 @@ Chip-8 is a virtual enviorment, originannaly developed in the 1970s, that have b
 
 # INSTALLATION AND HOW TO RUN GAMES
 ----------------------------------
-1.) Linux - Debain Based</n>
-    sudo apt-get install libsdl2-dev (SDL2 library if not already installed)
+A) LINUX
+Step 1: ```bash sudo apt-get install libsdl2-dev (SDL2 library if not already installed)
+Step 2: Download zip file for the source code on Github
+Step 3: Extract the zip file
+Step 4: cd chip-8-main/desktop (from whichever folder you extracted to)
+*NOTE - If you changed the name of the parent folder, use that instead
+Step 5: cargo run ../c8games/<name-of-game>
+*Example - cargo run ../c8games/PONG2
+
+
