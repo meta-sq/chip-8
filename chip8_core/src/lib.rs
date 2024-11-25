@@ -2,11 +2,11 @@ use rand::random;
 
 pub const DISPLAY_WIDTH: usize = 64;
 pub const DISPLAY_HEIGHT: usize = 32;
-const MEMORY_SIZE: usize = 4096;
+pub const MEMORY_SIZE: usize = 4096;
 const REGISTER_COUNT: usize = 16;
 const STACK_DEPTH: usize = 16;
 const KEY_COUNT: usize = 16;
-const STARTING_ADDRESS: u16 = 0x200;
+pub const STARTING_ADDRESS: u16 = 0x200;
 const FONT_DATA_SIZE: usize = 80;
 
 const FONT_DATA: [u8; FONT_DATA_SIZE] = [

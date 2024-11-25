@@ -1,4 +1,5 @@
 use chip8_core::*;
+use chip8_core::{MEMORY_SIZE, STARTING_ADDRESS};
 use std::env;
 use std::fs::File;
 use std::io::Read;
@@ -39,37 +40,111 @@ fn parse_arguments() -> String {
 
 /// Initializes SDL2 and returns the canvas and event pump.
 fn initialize_sdl() -> (Canvas<Window>, sdl2::EventPump) {
-    let sdl_context = sdl2::init().expect("Failed to initialize SDL2");
-    let video_subsystem = sdl_context.video().expect("Failed to initialize video subsystem");
+    // Step 1: Initialize SDL2
+    let sdl_context = match sdl2::init() {
+        Ok(context) => context,
+        Err(err) => {
+            eprintln!("Failed to initialize SDL2: {}", err);
+            std::process::exit(1);
+        }
+    };
 
-    let window = video_subsystem
+    // Step 2: Initialize video subsystem
+    let video_subsystem = match sdl_context.video() {
+        Ok(video) => video,
+        Err(err) => {
+            eprintln!("Failed to initialize SDL2 video subsystem: {}", err);
+            std::process::exit(1);
+        }
+    };
+
+    // Step 3: Create an SDL window
+    let window = match video_subsystem
         .window("Chip-8 Emulator", WINDOW_WIDTH, WINDOW_HEIGHT)
         .position_centered()
         .opengl()
         .build()
-        .expect("Failed to create window");
+    {
+        Ok(win) => win,
+        Err(err) => {
+            eprintln!("Failed to create SDL2 window: {}", err);
+            std::process::exit(1);
+        }
+    };
 
-    let canvas = window.into_canvas().present_vsync().build().expect("Failed to create canvas");
-    let event_pump = sdl_context.event_pump().expect("Failed to create event pump");
+    // Step 4: Create a canvas for rendering
+    let canvas = match window.into_canvas().present_vsync().build() {
+        Ok(can) => can,
+        Err(err) => {
+            eprintln!("Failed to create SDL2 canvas: {}", err);
+            std::process::exit(1);
+        }
+    };
 
+    // Step 5: Initialize event pump
+    let event_pump = match sdl_context.event_pump() {
+        Ok(pump) => pump,
+        Err(err) => {
+            eprintln!("Failed to create SDL2 event pump: {}", err);
+            std::process::exit(1);
+        }
+    };
+
+    // Step 6: Return the canvas and event pump
     (canvas, event_pump)
 }
 
 /// Initializes the Chip-8 emulator and loads the game.
+/// Initializes the Chip-8 emulator and loads the game program.
 fn initialize_chip8(game_path: &str) -> Chip8 {
-    let mut chip8 = Chip8::initialize();
+    let mut chip8 = create_chip8_instance();
+    let rom_data = read_game_file(game_path);
+    load_rom_into_chip8(&mut chip8, &rom_data);
+    chip8
+}
 
-    let mut rom_file = File::open(game_path).unwrap_or_else(|_| {
-        eprintln!("Failed to open file: {}", game_path);
+/// Creates and returns a new Chip-8 instance.
+fn create_chip8_instance() -> Chip8 {
+    println!("Initializing Chip-8 emulator...");
+    Chip8::initialize()
+}
+
+/// Reads the game ROM from the specified file path.
+fn read_game_file(game_path: &str) -> Vec<u8> {
+    println!("Reading game file from path: {}", game_path);
+
+    let mut rom_file = File::open(game_path).unwrap_or_else(|err| {
+        eprintln!("Error: Could not open file '{}'. {}", game_path, err);
         std::process::exit(1);
     });
 
     let mut buffer = Vec::new();
-    rom_file.read_to_end(&mut buffer).expect("Failed to read ROM file");
+    rom_file.read_to_end(&mut buffer).unwrap_or_else(|err| {
+        eprintln!("Error: Could not read file '{}'. {}", game_path, err);
+        std::process::exit(1);
+    });
 
-    chip8.load_program(&buffer);
-    chip8
+    println!("Successfully read {} bytes from '{}'.", buffer.len(), game_path);
+    buffer
 }
+
+/// Loads the ROM data into the Chip-8 emulator memory.
+fn load_rom_into_chip8(chip8: &mut Chip8, rom_data: &[u8]) {
+    println!("Loading ROM into Chip-8 memory...");
+
+    if rom_data.len() > (MEMORY_SIZE - STARTING_ADDRESS as usize) {
+        eprintln!(
+            "Error: ROM size ({}) exceeds available memory space ({} bytes).",
+            rom_data.len(),
+            MEMORY_SIZE - STARTING_ADDRESS as usize
+        );
+        std::process::exit(1);
+    }
+
+    chip8.load_program(rom_data);
+    println!("ROM successfully loaded into Chip-8 memory.");
+}
+
 
 /// Runs the Chip-8 emulator loop.
 fn run_emulator(chip8: &mut Chip8, canvas: &mut Canvas<Window>, event_pump: &mut sdl2::EventPump) {
@@ -87,21 +162,45 @@ fn run_emulator(chip8: &mut Chip8, canvas: &mut Canvas<Window>, event_pump: &mut
 fn handle_events(chip8: &mut Chip8, event_pump: &mut sdl2::EventPump) {
     for event in event_pump.poll_iter() {
         match event {
-            Event::Quit { .. } => std::process::exit(0),
-            Event::KeyDown { keycode: Some(key), .. } => {
-                if let Some(mapped_key) = map_key_to_button(key) {
-                    chip8.set_key_state(mapped_key, true);
-                }
-            }
-            Event::KeyUp { keycode: Some(key), .. } => {
-                if let Some(mapped_key) = map_key_to_button(key) {
-                    chip8.set_key_state(mapped_key, false);
-                }
-            }
-            _ => {}
+            Event::Quit { .. } => handle_quit_event(),
+            Event::KeyDown { keycode: Some(key), .. } => handle_key_down_event(chip8, key),
+            Event::KeyUp { keycode: Some(key), .. } => handle_key_up_event(chip8, key),
+            _ => handle_other_event(event),
         }
     }
 }
+
+/// Handles the quit event by exiting the program.
+fn handle_quit_event() {
+    println!("Quit event received. Exiting the emulator...");
+    std::process::exit(0);
+}
+
+/// Handles a key press event and updates the Chip-8 input state.
+fn handle_key_down_event(chip8: &mut Chip8, key: Keycode) {
+    if let Some(mapped_key) = map_key_to_button(key) {
+        println!("Key pressed: {:?} -> Chip-8 button {}", key, mapped_key);
+        chip8.set_key_state(mapped_key, true);
+    } else {
+        println!("Key pressed: {:?} (unmapped)", key);
+    }
+}
+
+/// Handles a key release event and updates the Chip-8 input state.
+fn handle_key_up_event(chip8: &mut Chip8, key: Keycode) {
+    if let Some(mapped_key) = map_key_to_button(key) {
+        println!("Key released: {:?} -> Chip-8 button {}", key, mapped_key);
+        chip8.set_key_state(mapped_key, false);
+    } else {
+        println!("Key released: {:?} (unmapped)", key);
+    }
+}
+
+/// Handles any other events not explicitly covered.
+fn handle_other_event(event: Event) {
+    println!("Unhandled event: {:?}", event);
+}
+
 
 /// Renders the Chip-8 framebuffer to the SDL canvas.
 fn render_display(chip8: &Chip8, canvas: &mut Canvas<Window>) {
