@@ -6,6 +6,7 @@ Chip-8 system have been made, such as CHIP-10, Hi-Res CHIP-8, CHIP-8C, and CHIP-
 # INSTALLATION AND HOW TO RUN GAMES
 ----------------------------------
 A) LINUX
+
 Step 1: sudo apt-get install libsdl2-dev (SDL2 library if not already installed)
 
 Step 2: Download zip file for the source code on Github
