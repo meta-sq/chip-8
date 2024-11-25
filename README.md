@@ -6,11 +6,9 @@ Chip-8 is a virtual environment originally developed in the 1970s, primarily use
 
 ## Installation and Running Games
 
-### A) Linux
-
 Follow these steps to set up and run Chip-8 games:
 
-1. **Install SDL2 Library**  
+1. **Install SDL2 Library** (For Linux Only)
    Run the following command to install the SDL2 library if it is not already installed:
    ```bash
    sudo apt-get install libsdl2-dev
