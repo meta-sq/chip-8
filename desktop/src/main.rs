@@ -10,14 +10,14 @@ use sdl2::render::Canvas;
 use sdl2::video::Window;
 
 const SCALE: u32 = 15;
-const WINDOW_WIDTH: u32 = (SCREEN_WIDTH as u32) * SCALE;
-const WINDOW_HEIGHT: u32 = (SCREEN_HEIGHT as u32) * SCALE;
-const TICKS_PER_FRAME: usize = 10;
+const WINDOW_WIDTH: u32 = (DISPLAY_WIDTH as u32) * SCALE;
+const WINDOW_HEIGHT: u32 = (DISPLAY_HEIGHT as u32) * SCALE;
+const CYCLES_PER_FRAME: usize = 10;
 
 fn main() {
     let args: Vec<_> = env::args().collect();
     if args.len() != 2 {
-        println!("Usage: cargo run path/to/game");
+        println!("Usage: cargo run <path_to_game>");
         return;
     }
 
@@ -30,59 +30,61 @@ fn main() {
         .opengl()
         .build()
         .unwrap();
-    
+
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     canvas.clear();
     canvas.present();
 
     let mut event_pump = sdl_context.event_pump().unwrap();
 
-    let mut chip8 = Emu::new();
-    
-    let mut rom = File::open(&args[1]).expect("Unable to open file");
+    let mut chip8 = Chip8::initialize();
+
+    let mut rom_file = File::open(&args[1]).expect("Unable to open file");
     let mut buffer = Vec::new();
-    
-    rom.read_to_end(&mut buffer).unwrap();
-    chip8.load(&buffer);
-    
-    'gameloop: loop {
-        for evt in event_pump.poll_iter() {
-            match evt {
-                Event::Quit{..} => {
-                    break 'gameloop;
-                },
-                Event::KeyDown{keycode: Some(key), ..} => {
-                    if let Some(k) = key2btn(key) {
-                        chip8.keypress(k, true);
+
+    rom_file.read_to_end(&mut buffer).unwrap();
+    chip8.load_program(&buffer);
+
+    'game_loop: loop {
+        for event in event_pump.poll_iter() {
+            match event {
+                Event::Quit { .. } => {
+                    break 'game_loop;
+                }
+                Event::KeyDown { keycode: Some(key), .. } => {
+                    if let Some(mapped_key) = map_key_to_button(key) {
+                        chip8.set_key_state(mapped_key, true);
                     }
-                },
-                Event::KeyUp{keycode: Some(key), ..} => {
-                    if let Some(k) = key2btn(key) {
-                        chip8.keypress(k, false);
+                }
+                Event::KeyUp { keycode: Some(key), .. } => {
+                    if let Some(mapped_key) = map_key_to_button(key) {
+                        chip8.set_key_state(mapped_key, false);
                     }
-                },
-                _ => ()
+                }
+                _ => {}
             }
         }
-        for _ in 0..TICKS_PER_FRAME {
-            chip8.tick();
+
+        for _ in 0..CYCLES_PER_FRAME {
+            chip8.cycle();
         }
-        chip8.tick_timers();
-        draw_screen(&chip8, &mut canvas);
+
+        chip8.update_timers();
+        render_display(&chip8, &mut canvas);
     }
 }
-fn draw_screen(emu: &Emu, canvas: &mut Canvas<Window>) {
 
+fn render_display(chip8: &Chip8, canvas: &mut Canvas<Window>) {
     canvas.set_draw_color(Color::RGB(0, 0, 0));
     canvas.clear();
 
-    let screen_buf = emu.get_display();
+    let framebuffer = chip8.get_framebuffer();
 
     canvas.set_draw_color(Color::RGB(255, 255, 255));
-    for (i, pixel) in screen_buf.iter().enumerate() {
-        if *pixel {
-            let x = (i % SCREEN_WIDTH) as u32;
-            let y = (i / SCREEN_WIDTH) as u32;
+    for (index, &pixel) in framebuffer.iter().enumerate() {
+        if pixel {
+            let x = (index % DISPLAY_WIDTH) as u32;
+            let y = (index / DISPLAY_WIDTH) as u32;
 
             let rect = Rect::new((x * SCALE) as i32, (y * SCALE) as i32, SCALE, SCALE);
             canvas.fill_rect(rect).unwrap();
@@ -91,7 +93,7 @@ fn draw_screen(emu: &Emu, canvas: &mut Canvas<Window>) {
     canvas.present();
 }
 
-fn key2btn(key: Keycode) -> Option<usize> {
+fn map_key_to_button(key: Keycode) -> Option<usize> {
     match key {
         Keycode::Num1 => Some(0x1),
         Keycode::Num2 => Some(0x2),
