@@ -5,4 +5,4 @@ edition = "2021"
 
 [dependencies]
 chip8_core = { path = "../chip8_core" }
-sdl2 = "^0.34.3"
+sdl2 = { version = "0.35", features = ["bundled"] } # Check for the latest version at https://crates.io/crates/sdl2
