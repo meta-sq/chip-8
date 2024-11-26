@@ -5,6 +5,7 @@ Chip-8 is a virtual environment originally developed in the 1970s, primarily use
 ---
 
 ## Installation and Running Games
+PLEASE NOTE: You need to install cargo(rust build tool and package manager) before beginning
 
 Follow these steps to set up and run Chip-8 games:
 
