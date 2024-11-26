@@ -16,7 +16,7 @@ Follow these steps to set up and run Chip-8 games:
    sudo apt-get install libsdl2-dev
    ```
 
-PLEASE NOTE: the sdl2 library will take a while to install, please be patient because your terminal has not crashed
+PLEASE NOTE: the sdl2 library will take a while to install, please be patient. Your terminal has NOT crashed
 
 3. **Download Source Code**  
    Download the source code as a ZIP file from the [GitHub repository](#).
