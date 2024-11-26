@@ -1,5 +1,6 @@
 use chip8_core::*;
 use chip8_core::{MEMORY_SIZE, STARTING_ADDRESS};
+extern crate sdl2;
 use std::env;
 use std::fs::File;
 use std::io::Read;
